@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+
+body{
+  text-align: center;
+}
+.links line {
+  stroke: #999;
+  stroke-opacity: 0.6;
+}
+
+.nodes circle {
+  stroke: #fff;
+  stroke-width: 1.5px;
+}
+
+</style>
+<svg width="1200" height="1200" style="text-align: center;"></svg>
+<button onClick="refreshPage()">Reset</button>
+<script src="https://d3js.org/d3.v4.min.js">
+
+  function refreshPage(){
+  if(confirm("Are you sure, want to refresh?")){
+      location.reload();
+  }       
+}
+</script>
+
+<script>
+
+var svg = d3.select("svg"),
+    width = +svg.attr("width"),
+    height = +svg.attr("height");
+
+var radius = (width - 700)/2;
+
+var color = d3.scaleOrdinal(d3.schemeCategory20);
+
+var simulation = d3.forceSimulation()
+    .force("link", d3.forceLink().id(function(d) { return d.id; }))
+    .force("charge", d3.forceManyBody());
+   // .force("center", d3.forceCenter(600, 600));
+//    .force("r", d3.forceRadial(600));
+
+d3.json("miserables_2.json", function(error, graph) {
+  if (error) throw error;
+
+    var innerRadius = radius/2;
+
+    var tags = (graph.nodes).slice(14);
+    var tagLen = tags.length;
+
+    var stories = (graph.nodes).slice(0, 14);
+    var storyLen = stories.length;
+
+  var createNodes = function(){
+    var nodes = [], //get all nodes
+
+      angle,
+      x,
+      y,
+      i,
+      j; 
+    
+    for(j = 0; j < tagLen; j++){
+        angle = (j / (tagLen/2) * Math.PI);
+        x = (radius * Math.cos(angle)) + width/2;
+        y = (radius * Math.sin(angle)) + width/2;
+        tags[j].x = x;
+        tags[j].y = y;
+        tags[j].fx = x;
+        tags[j].fy = y;
+        tags[j].tag = true;
+        nodes.push(tags[j]);
+      
+      } 
+
+      for(i = 0; i < storyLen; i++){ 
+          angle = (i / (storyLen/2)) * Math.PI;
+          x = (innerRadius * Math.cos(angle)) + width/2; 
+          y = (innerRadius * Math.sin(angle)) + width/2;
+          stories[i].x = x;
+          stories[i].y = y;
+          stories[i].fx = x;
+          stories[i].fy = y;
+          stories[i].tag = false;
+          nodes.push(stories[i]);
+      }
+
+    return nodes;
+  }
+
+  var tooltip = d3.select("body")
+    .append("div")
+    .style("position", "absolute")
+    .style("z-index", "10")
+    .style("visibility", "hidden")
+    .style("background", "#000")
+    .style("color", "white")
+    .style("padding", "10px")
+    .text("a simple tooltip");
+
+var nodes = createNodes();
+
+ var link = svg.selectAll("link")
+   .data(graph.links)
+   .enter()
+   .append("line")
+   .attr("class", "link")
+   .attr("x1", function(l) {
+     var sourceNode = nodes.filter(function(d, i) {
+       return d.id == l.source
+     })[0];
+     d3.select(this).attr("y1", sourceNode.y);
+     return sourceNode.x
+   })
+   .attr("x2", function(l) {
+     var targetNode = nodes.filter(function(d, i) {
+       return d.id == l.target
+     })[0];
+     d3.select(this).attr("y2", targetNode.y);
+     return targetNode.x
+   })
+   .attr("fill", "none")
+   .attr("stroke", "#D3D3D3");
+
+    
+    var node = svg.selectAll(".node")
+        .data(nodes)
+        .enter().append("g")
+        .attr("class", "node")
+        .call(d3.drag()
+          .on("start", dragstarted)
+          .on("drag", dragged)
+          .on("end", dragended));
+  
+    node.append("circle")
+        .attr("r", function(d){ 
+          if (d.tag) return 12;
+          else return 5})
+        .attr("fill", function(d) { return color(d.group); })
+        .text(function(d) { return d.id; })
+        .on("mouseover", function(d){ if(d.tag == false) tooltip.text(d.id); return tooltip.style("visibility", "visible");})
+        .on("mousemove", function(d){if (d.tag == false) return tooltip.style("top", (d3.event.pageY-10)+"px").style("left",(d3.event.pageX+10)+"px");})
+        .on("mouseout", function(){ return tooltip.style("visibility", "hidden");})
+  
+
+   node.append("text")
+     .attr("y", 10)
+     .text(function(d) { if(d.tag) return d.id });
+
+  simulation
+      .nodes(nodes)
+      .on("tick", ticked);
+
+
+  simulation.force("link")
+      .links(graph.links);    
+
+  function ticked() {
+    link
+        .attr("x1", function(d) { return d.source.x; })
+        .attr("y1", function(d) { return d.source.y; })
+        .attr("x2", function(d) { return d.target.x; })
+        .attr("y2", function(d) { return d.target.y; });
+
+    node
+      .attr("transform", function(d) { return "translate(" + d.x + "," + d.y + ")"});
+
+    }
+
+function dragstarted(d) {
+  if (!d3.event.active) simulation.alphaTarget(0.3).restart();
+  d.fx = d.x;
+  d.fy = d.y;
+
+  nodes.forEach(function(element){
+    if (d.stories.indexOf(element.id) > -1) {
+      element.fx = null;
+      element.fy = null;
+    }
+  });
+}
+
+function dragged(d) {
+  d.fx = d3.event.x;
+  d.fy = d3.event.y;
+
+  nodes.forEach(function(element){
+    if (d.stories.indexOf(element.id) > -1) {
+      element.fx = null;
+      element.fy = null;
+    }
+  });
+}
+
+function dragended(d) {
+  if (!d3.event.active) simulation.alphaTarget(0);
+
+    nodes.forEach(function(element){
+    if (d.stories.indexOf(element.id) > -1) {
+      element.fx = element.x;
+      element.fy = element.y;
+    }
+  });
+
+}
+
+});
+
+
+function refreshPage(){
+  if(confirm("Are you sure you want to reset the visualization?")){
+      location.reload();
+  }       
+}
+
+</script>
