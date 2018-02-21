@@ -43,7 +43,7 @@ var simulation = d3.forceSimulation()
    // .force("center", d3.forceCenter(600, 600));
 //    .force("r", d3.forceRadial(600));
 
-d3.json("miserables_2.json", function(error, graph) {
+d3.json("stories.json", function(error, graph) {
   if (error) throw error;
 
     var innerRadius = radius/2;
